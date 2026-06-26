@@ -23,14 +23,18 @@ def outlook_callback():
         'code': code,
         'redirect_uri': REDIRECT_URI,
         'grant_type': 'authorization_code',
-        'scope': 'Mail.Read Mail.Send offline_access'
+        'scope': 'https://graph.microsoft.com/Mail.Read https://graph.microsoft.com/Mail.Send offline_access'
     }
 
     response = requests.post(token_url, data=data)
     tokens = response.json()
-    access_token = tokens.get('access_token', '')
 
-    # Redirige al frontend con el token
+    # Si hay error, lo mostramos en pantalla para diagnosticar
+    if 'access_token' not in tokens:
+        print('TOKEN ERROR:', tokens)
+        return jsonify(tokens), 400
+
+    access_token = tokens['access_token']
     return redirect(f'{FRONTEND_URL}/?token={access_token}')
 
 @app.route('/api/outlook/emails', methods=['POST'])
