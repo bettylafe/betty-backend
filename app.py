@@ -1,14 +1,19 @@
 from flask import Flask, jsonify, request, redirect
+from flask_cors import CORS
 import requests
 import os
 
 app = Flask(__name__)
+CORS(app)
 
 CLIENT_ID = os.getenv('AZURE_CLIENT_ID')
 CLIENT_SECRET = os.getenv('AZURE_CLIENT_SECRET')
 TENANT_ID = os.getenv('AZURE_TENANT_ID')
 REDIRECT_URI = os.getenv('REDIRECT_URI')
+CLAUDE_API_KEY = os.getenv('CLAUDE_API_KEY')
 FRONTEND_URL = 'https://superlative-macaron-311744.netlify.app'
+
+BETTY_PROMPT = "Tu es BETTY, assistante comptable française. Tu aides avec les emails, factures et paiements. Sois concise, professionnelle et chaleureuse. Réponds toujours en français."
 
 @app.route('/api/outlook/callback', methods=['GET'])
 def outlook_callback():
@@ -29,7 +34,6 @@ def outlook_callback():
     response = requests.post(token_url, data=data)
     tokens = response.json()
 
-    # Si hay error, lo mostramos en pantalla para diagnosticar
     if 'access_token' not in tokens:
         print('TOKEN ERROR:', tokens)
         return jsonify(tokens), 400
@@ -42,14 +46,19 @@ def get_emails():
     token = request.json.get('access_token')
     headers = {'Authorization': f'Bearer {token}'}
     response = requests.get(
-        'https://graph.microsoft.com/v1.0/me/mailFolders/inbox/messages?$top=20',
+        'https://graph.microsoft.com/v1.0/me/mailFolders/inbox/messages?$top=20&$select=subject,from,receivedDateTime,bodyPreview',
         headers=headers
     )
     return jsonify(response.json())
 
-@app.route('/', methods=['GET'])
-def health():
-    return jsonify({'status': 'ok'})
+@app.route('/api/chat', methods=['POST'])
+def chat():
+    data = request.json
+    user_message = data.get('message', '')
+    email_context = data.get('email_context', '')
 
-if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=int(os.getenv('PORT', 5000)))
+    full_message = user_message
+    if email_context:
+        full_message = f"Voici mes emails récents:\n{email_context}\n\nQuestion: {user_message}"
+
+    response =
