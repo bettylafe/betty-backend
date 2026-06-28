@@ -57,8 +57,9 @@ def get_emails():
         response = requests.get(url, headers=headers)
         # Si Microsoft devuelve error (token expirado, etc), lo pasamos como JSON
         if response.status_code != 200:
-            print('GRAPH ERROR:', response.status_code, response.text)
-            return jsonify({'error': {'message': 'Token expire ou invalide. Reconnecte-toi.', 'status': response.status_code}}), 200
+            print('GRAPH ERROR:', response.status_code)
+            print('GRAPH BODY:', response.text)
+            return jsonify({'error': {'message': 'Erreur Graph', 'status': response.status_code, 'detail': response.text}}), 200
         return jsonify(response.json())
     except Exception as e:
         print('EMAILS EXCEPTION:', str(e))
@@ -104,4 +105,5 @@ def health():
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=int(os.getenv('PORT', 5000)))
+
 
