@@ -46,10 +46,22 @@ def outlook_callback():
 @app.route('/api/outlook/emails', methods=['POST'])
 def get_emails():
     token = request.json.get('access_token')
+    if not token:
+        return jsonify({'error': {'message': 'No token provided'}}), 400
+
     headers = {'Authorization': 'Bearer ' + token}
     url = 'https://graph.microsoft.com/v1.0/me/mailFolders/inbox/messages?$top=20&$select=subject,from,receivedDateTime,bodyPreview'
-    response = requests.get(url, headers=headers)
-    return jsonify(response.json())
+
+    try:
+        response = requests.get(url, headers=headers)
+        # Si Microsoft devuelve error (token expirado, etc), lo pasamos como JSON
+        if response.status_code != 200:
+            print('GRAPH ERROR:', response.status_code, response.text)
+            return jsonify({'error': {'message': 'Token expire ou invalide. Reconnecte-toi.', 'status': response.status_code}}), 200
+        return jsonify(response.json())
+    except Exception as e:
+        print('EMAILS EXCEPTION:', str(e))
+        return jsonify({'error': {'message': str(e)}}), 200
 
 
 @app.route('/api/chat', methods=['POST'])
