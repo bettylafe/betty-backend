@@ -22,7 +22,7 @@ def outlook_callback():
     if not code:
         return 'Error: no code received', 400
 
-    token_url = 'https://login.microsoftonline.com/' + TENANT_ID + '/oauth2/v2.0/token'
+    token_url = 'https://login.microsoftonline.com/common/oauth2/v2.0/token'
     data = {
         'client_id': CLIENT_ID,
         'client_secret': CLIENT_SECRET,
