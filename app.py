@@ -298,10 +298,12 @@ def envoyer_email():
             headers=headers,
             json=message
         )
+        print('SENDMAIL status:', response.status_code, 'body:', response.text[:300])
         if response.status_code == 202:
             return jsonify({'success': True, 'message': 'Email envoye a ' + destinataire})
         return jsonify({'success': False, 'error': 'Erreur Graph', 'status': response.status_code, 'detail': response.text}), 200
     except Exception as e:
+        print('SENDMAIL EXCEPTION:', str(e))
         return jsonify({'success': False, 'error': str(e)}), 200
 
 
@@ -312,3 +314,4 @@ def health():
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=int(os.getenv('PORT', 5000)))
+
