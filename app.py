@@ -28,17 +28,15 @@ def supabase_headers():
 
 
 def save_refresh_token(refresh_token):
-    del_res = requests.delete(
+    requests.delete(
         SUPABASE_URL + '/rest/v1/outlook_tokens?user_id=eq.betty_principal',
         headers=supabase_headers()
     )
-    print('SB DELETE token status:', del_res.status_code, 'body:', del_res.text)
-    post_res = requests.post(
+    requests.post(
         SUPABASE_URL + '/rest/v1/outlook_tokens',
         headers=supabase_headers(),
         json={'user_id': 'betty_principal', 'refresh_token': refresh_token}
     )
-    print('SB POST token status:', post_res.status_code, 'body:', post_res.text)
 
 
 def get_refresh_token():
@@ -46,7 +44,6 @@ def get_refresh_token():
         SUPABASE_URL + '/rest/v1/outlook_tokens?user_id=eq.betty_principal&order=updated_at.desc&limit=1',
         headers=supabase_headers()
     )
-    print('SB GET token status:', res.status_code, 'body:', res.text)
     data = res.json()
     if isinstance(data, list) and len(data) > 0:
         return data[0]['refresh_token']
@@ -238,3 +235,4 @@ def health():
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=int(os.getenv('PORT', 5000)))
+
