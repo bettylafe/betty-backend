@@ -163,7 +163,7 @@ def get_emails():
         return jsonify({'error': {'message': 'No token provided'}}), 400
 
     headers = {'Authorization': 'Bearer ' + token}
-    url = 'https://graph.microsoft.com/v1.0/me/mailFolders/inbox/messages?$top=20&$select=subject,from,receivedDateTime,bodyPreview'
+    url = 'https://graph.microsoft.com/v1.0/me/mailFolders/inbox/messages?$top=20&$select=id,subject,from,receivedDateTime,bodyPreview'
 
     try:
         response = requests.get(url, headers=headers)
@@ -228,6 +228,83 @@ def resumen_generer():
     return jsonify({'resumen': resumen, 'count': len(emails)})
 
 
+@app.route('/api/outlook/email-complet', methods=['POST'])
+def email_complet():
+    token = request.json.get('access_token')
+    email_id = request.json.get('email_id')
+    if not token or not email_id:
+        return jsonify({'error': 'Token ou id manquant'}), 400
+    headers = {'Authorization': 'Bearer ' + token}
+    url = 'https://graph.microsoft.com/v1.0/me/messages/' + email_id + '?$select=subject,from,toRecipients,body,receivedDateTime'
+    try:
+        response = requests.get(url, headers=headers)
+        if response.status_code != 200:
+            return jsonify({'error': 'Erreur Graph', 'detail': response.text}), 200
+        return jsonify(response.json())
+    except Exception as e:
+        return jsonify({'error': str(e)}), 200
+
+
+@app.route('/api/redaction', methods=['POST'])
+def redaction():
+    data = request.json
+    email_original = data.get('email_original', '')
+    expediteur = data.get('expediteur', '')
+    objet = data.get('objet', '')
+    instructions = data.get('instructions', '')
+
+    prompt = ("Tu dois rediger une reponse professionnelle a cet email recu.\n\n"
+              "Expediteur: " + expediteur + "\n"
+              "Objet: " + objet + "\n"
+              "Contenu de l'email:\n" + email_original + "\n\n")
+    if instructions:
+        prompt += "Instructions specifiques pour la reponse: " + instructions + "\n\n"
+    prompt += ("Redige UNIQUEMENT le corps de la reponse, en francais, ton professionnel et chaleureux. "
+               "Pas d'objet, pas de signature automatique generique. Commence directement par la salutation. "
+               "Sois concis et clair.")
+
+    reply = ask_claude(prompt, '')
+    if reply:
+        return jsonify({'redaction': reply.strip()})
+    return jsonify({'error': 'Erreur IA'}), 400
+
+
+@app.route('/api/outlook/envoyer', methods=['POST'])
+def envoyer_email():
+    data = request.json
+    token = data.get('access_token')
+    destinataire = data.get('destinataire')
+    objet = data.get('objet', '')
+    corps = data.get('corps', '')
+
+    if not token or not destinataire or not corps:
+        return jsonify({'error': 'Donnees manquantes (token, destinataire ou corps)'}), 400
+
+    headers = {
+        'Authorization': 'Bearer ' + token,
+        'Content-Type': 'application/json'
+    }
+    message = {
+        'message': {
+            'subject': objet,
+            'body': {'contentType': 'Text', 'content': corps},
+            'toRecipients': [{'emailAddress': {'address': destinataire}}]
+        },
+        'saveToSentItems': True
+    }
+    try:
+        response = requests.post(
+            'https://graph.microsoft.com/v1.0/me/sendMail',
+            headers=headers,
+            json=message
+        )
+        if response.status_code == 202:
+            return jsonify({'success': True, 'message': 'Email envoye a ' + destinataire})
+        return jsonify({'success': False, 'error': 'Erreur Graph', 'status': response.status_code, 'detail': response.text}), 200
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 200
+
+
 @app.route('/', methods=['GET'])
 def health():
     return jsonify({'status': 'ok'})
@@ -235,4 +312,3 @@ def health():
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=int(os.getenv('PORT', 5000)))
-
