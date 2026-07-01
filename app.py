@@ -235,12 +235,26 @@ def email_complet():
     if not token or not email_id:
         return jsonify({'error': 'Token ou id manquant'}), 400
     headers = {'Authorization': 'Bearer ' + token}
-    url = 'https://graph.microsoft.com/v1.0/me/messages/' + email_id + '?$select=subject,from,toRecipients,body,receivedDateTime'
+    url = 'https://graph.microsoft.com/v1.0/me/messages/' + email_id + '?$select=subject,from,toRecipients,body,receivedDateTime,hasAttachments'
     try:
         response = requests.get(url, headers=headers)
         if response.status_code != 200:
             return jsonify({'error': 'Erreur Graph', 'detail': response.text}), 200
-        return jsonify(response.json())
+        result = response.json()
+        # Si l'email a des pieces jointes, recuperer leurs metadonnees (nom, type, taille) - gratuit, pas de contenu
+        result['attachments_liste'] = []
+        if result.get('hasAttachments'):
+            att_url = 'https://graph.microsoft.com/v1.0/me/messages/' + email_id + '/attachments?$select=name,contentType,size'
+            att_res = requests.get(att_url, headers=headers)
+            if att_res.status_code == 200:
+                att_data = att_res.json()
+                for a in att_data.get('value', []):
+                    result['attachments_liste'].append({
+                        'name': a.get('name', 'fichier'),
+                        'contentType': a.get('contentType', ''),
+                        'size': a.get('size', 0)
+                    })
+        return jsonify(result)
     except Exception as e:
         return jsonify({'error': str(e)}), 200
 
@@ -280,6 +294,14 @@ def envoyer_email():
     if not token or not destinataire or not corps:
         return jsonify({'error': 'Donnees manquantes (token, destinataire ou corps)'}), 400
 
+    # Nettoyage du corps: enlever espaces en trop et lignes vides multiples
+    lignes = [ligne.rstrip() for ligne in corps.split('\n')]
+    corps_propre = '\n'.join(lignes).strip()
+    # Reduire 3+ sauts de ligne consecutifs a 2 maximum
+    while '\n\n\n' in corps_propre:
+        corps_propre = corps_propre.replace('\n\n\n', '\n\n')
+    corps = corps_propre
+
     headers = {
         'Authorization': 'Bearer ' + token,
         'Content-Type': 'application/json'
@@ -314,4 +336,3 @@ def health():
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=int(os.getenv('PORT', 5000)))
-
